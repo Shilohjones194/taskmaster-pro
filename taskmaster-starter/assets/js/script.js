@@ -13,6 +13,9 @@ var createTask = function (taskText, taskDate, taskList) {
   // append span and p element to parent li
   taskLi.append(taskSpan, taskP);
 
+  // check due date
+  auditTask(taskLi);
+
   // append to ul list on the page
   $("#list-" + taskList).append(taskLi);
 };
@@ -44,6 +47,27 @@ var saveTasks = function () {
   localStorage.setItem("tasks", JSON.stringify(tasks));
 };
 
+var auditTask = function(taskEl) {
+  // get date from task element
+  var date = $(taskEl).find("span").text().trim();
+  // ensure it worked console.log(date);
+
+  //convert to moment object at 5:00pm
+  var time = moment(date, "L").set("hour", 17);
+  //this should print out an object for the value of the date variable, but at 5:00pm of that date console.log(time);
+  
+  //remove any old classes of element
+  $(taskEl).removeClass("list-group-item-warning list-group-item-danger");
+
+  // apply new class if task is near/over due date
+  if (moment().isAfter(time)) {
+    $(taskEl).addClass("list-group-item-danger");
+  }
+  else if (Math.abs(moment().diff(time, "days")) <= 2) {
+    $(taskEl).addClass("list-group-item-warning");
+  }
+};
+
 // enable draggable/sortable feature on list-group elements
 $(".card .list-group").sortable({
   // enable dragging across lists
@@ -51,7 +75,7 @@ $(".card .list-group").sortable({
   scroll: false,
   tolerance: "pointer",
   helper: "clone",
-  activate: function (event) {
+  activate: function (event, ui) {
     console.log(ui);
   },
   deactivate: function (event, ui) {
@@ -64,38 +88,39 @@ $(".card .list-group").sortable({
     console.log(event);
   },
   update: function () {
-    var  = [];
+    var tempArr = [];
 
     // loop over current set of children in sortable list
     $(this)
       .children()
       .each(function () {
         // save values in temp array
-        .push({
-        text: $(this)
-          .find("p")
-          .text()
-          .trim(),
-        date: $(this)
-          .find("span")
-          .text()
-          .trim()
-      });
-  });
+        tempArr.push({
+          text: $(this)
+            .find("p")
+            .text()
+            .trim(),
+          date: $(this)
+            .find("span")
+            .text()
+            .trim()
+        });
+     });
 
-// trim down list's ID to match object property
-var arrName = $(this)
-  .attr("id")
-  .replace("list-", "");
+    // trim down list's ID to match object property
+    var arrName = $(this)
+      .attr("id")
+      .replace("list-", "");
 
-// update array on tasks object and save
-tasks[arrName] = ;
-saveTasks();
+    // update array on tasks object and save
+    tasks[arrName] = tempArr;
+    saveTasks();
   },
-stop: function(event) {
-  $(this).removeClass("dropover");
-}
+    stop: function(event) {
+      $(this).removeClass("dropover");
+  }
 });
+
 
 // trash icon can be dropped onto
 $("#trash").droppable({
@@ -111,6 +136,10 @@ $("#trash").droppable({
   out: function (event, ui) {
     console.log(ui);
   }
+});
+
+$("#modalDueDate").datepicker({
+  minDate: 1
 });
 
 
@@ -193,16 +222,24 @@ $(".list-group").on("blur", "textarea", function () {
 // due date was clicked
 $(".list-group").on("click", "span", function () {
   // get current text
-  var date = $(this)
-    .text()
-    .trim();
-
+  var date = $(this).text().trim();
+//// lines 199-201  & 204-206 you can write in both ways. They do the same thing//
   // create new input element
   var dateInput = $("<input>")
     .attr("type", "text")
     .addClass("form-control")
     .val(date);
+
   $(this).replaceWith(dateInput);
+  
+  // enable jquery ui datepicker
+  dateInput.datepicker({
+    minDate: 1,
+    onClose: function() {
+      //When calendar is closed, force a "change" event on the 'dateInput'
+      $(this).trigger("change");
+    }
+  });
 
   // automatically bring up the calendar
   dateInput.trigger("focus");
@@ -230,6 +267,10 @@ $(".list-group").on("change", "input[type='text']", function () {
     .addClass("badge badge-primary badge-pill")
     .text(date);
   $(this).replaceWith(taskSpan);
+
+  //Pass task's <li> element into auditTask() to check new due date 
+  auditTask($(taskSpan).closest(".list-group-item"));
+  
 });
 
 // remove all tasks
